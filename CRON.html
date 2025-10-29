@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Cron Expression Studio</title>
+  <style>
+    :root{
+      --bg:#0b0d10;--panel:#0e1520;--muted:#8b99a8;--text:#eef6ff;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--chip1:#60a5fa;--chip2:#a78bfa;--chip3:#34d399;--chip4:#f472b6;--chip5:#facc15;--accent:#6ee7b7;--border:#17324a;--shadow:0 8px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b0d10,#0e1319);color:var(--text);font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
+    .wrap{max-width:1100px;margin:40px auto;padding:24px}
+    .title{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .title h1{margin:0;font-size:26px;letter-spacing:.3px}
+    .title .tz{font-size:13px;color:var(--muted)}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px}
+    .row{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start}
+    .label{font-size:13px;color:var(--muted);margin-bottom:6px}
+    .input{position:relative}
+    input[type="text"]{width:100%;padding:14px;border-radius:12px;background:#0f141b;border:1px solid #1b2230;color:var(--text);font:16px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.2px}
+    input[type="text"]:focus{outline:none;border-color:#334155;box-shadow:0 0 0 4px rgba(100,116,139,.18)}
+
+    .legend{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+    .seg{position:relative;background:#0f141b;border:1px dashed #263040;border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
+    .seg b{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+    .seg .val{font:14px ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .active{border-style:solid;border-color:#4c8bf5;box-shadow:0 0 0 3px rgba(76,139,245,.15)}
+
+    .seg .mini{margin-top:-2px}
+    .menu-btn{appearance:none;border:1px solid #2a3a50;background:#0c1a29;color:#cfe5ff;border-radius:8px;cursor:pointer;padding:6px 8px;line-height:1;font-size:12px}
+    .menu-btn:hover{filter:brightness(1.08)}
+
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+    .chip{padding:6px 10px;border-radius:999px;font:13px ui-monospace,Menlo,Consolas,monospace;border:1px solid #253041;background:#0f141b;white-space:nowrap}
+    .c1{border-color:var(--chip1);color:var(--chip1)}
+    .c2{border-color:var(--chip2);color:var(--chip2)}
+    .c3{border-color:var(--chip3);color:var(--chip3)}
+    .c4{border-color:var(--chip4);color:var(--chip4)}
+    .c5{border-color:var(--chip5);color:var(--chip5)}
+
+    .hint{margin-top:8px;color:var(--muted);min-height:22px}
+    .hint strong{color:#c7d2fe}
+    .error{margin-top:10px;color:var(--bad);min-height:20px}
+
+    .cols{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px}
+    .pane h3{margin:0 0 8px 0;font-size:15px;color:#dce6f5}
+    .pane .sub{font-size:13px;color:var(--muted);margin-bottom:8px}
+
+    .list{max-height:238px;overflow:auto;border:1px solid var(--border);border-radius:12px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:14px}
+    th{position:sticky;top:0;background:#11161e;text-align:left;color:#b8c7d9}
+    tr:last-child td{border-bottom:none}
+
+    .btn{appearance:none;border:none;background:#18202b;color:#e7f2ff;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer;border:1px solid #223043}
+    .btn:hover{filter:brightness(1.1)}
+    .btn:active{transform:translateY(1px)}
+    .btn.ghost{background:transparent}
+    .btn.primary{background:linear-gradient(135deg,#2563eb,#22d3ee);border:none}
+
+    dialog{border:none;border-radius:16px;padding:0;max-width:880px;width:min(92vw,880px);box-shadow:var(--shadow);color:#0e1216}
+    .dlg{display:grid;grid-template-columns:1fr;gap:0}
+    .dlg header{padding:16px 18px;background:#0e141b;color:#e8f0ff;border-radius:16px 16px 0 0;border-bottom:1px solid #1b2635}
+    .dlg main{padding:18px;background:#0b1016;color:#dbe7f7}
+    .dlg main h4{margin:16px 0 6px 0}
+    .dlg main p, .dlg main li{color:#b3c3d6}
+    .dlg footer{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;background:#0e141b;border-top:1px solid #1b2635;border-radius:0 0 16px 16px}
+
+    .examples{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .ex{color:#eaf4ff;font:13px ui-monospace,Menlo,Consolas,monospace;padding:10px 12px;border-radius:10px;background:#0c1a29;border:1px solid #2a4a66;cursor:pointer}
+    .ex:hover{border-style:solid}
+
+    .footer{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:14px;color:var(--muted);font-size:13px}
+    .status{display:flex;gap:10px;align-items:center}
+    .dot{width:8px;height:8px;border-radius:50%}
+    .ok{background:var(--ok)}
+    .warn{background:var(--warn)}
+    .bad{background:var(--bad)}
+
+    /* Dropdown in viewport layer (fixed, portal to body) */
+    .dd{position:fixed;z-index:1000;min-width:220px;max-width:320px;background:#0b1622;border:1px solid #27415c;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:6px;display:none}
+    .dd.open{display:block}
+    .dd h5{margin:6px 8px 6px;font-size:12px;color:#a9c3de;font-weight:600}
+    .dd .opt{display:block;width:100%;text-align:left;border:none;background:#0e1c2a;color:#e8f5ff;margin:4px 0;padding:8px 10px;border-radius:8px;font:13px ui-monospace,Menlo,Consolas,monospace;cursor:pointer;border:1px solid #20354a}
+    .dd .opt:hover{filter:brightness(1.06)}
+    .dd .row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+
+    @media (max-width:880px){.cols{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <h1>Cron Expression Studio</h1>
+      <div class="tz" id="tz"></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="label">Cron Expression (5 fields)</div>
+          <div class="input"><input id="cron" type="text" spellcheck="false" placeholder="e.g. 15 22,10 * * *" aria-describedby="err hint" /></div>
+          <div class="legend" id="legend">
+            <div class="seg" data-i="0">
+              <div>
+                <b>Minute</b>
+                <div class="val" id="v0">?</div>
+              </div>
+              <div class="mini">
+                <button class="menu-btn" data-menu="0" title="Minute presets">▾</button>
+                <div class="dd" id="dd0" role="menu" aria-label="Minute presets"></div>
+              </div>
+            </div>
+            <div class="seg" data-i="1">
+              <div>
+                <b>Hour</b>
+                <div class="val" id="v1">?</div>
+              </div>
+              <div class="mini">
+                <button class="menu-btn" data-menu="1" title="Hour presets">▾</button>
+                <div class="dd" id="dd1" role="menu" aria-label="Hour presets"></div>
+              </div>
+            </div>
+            <div class="seg" data-i="2">
+              <div>
+                <b>Day</b>
+                <div class="val" id="v2">?</div>
+              </div>
+              <div class="mini">
+                <button class="menu-btn" data-menu="2" title="Day presets">▾</button>
+                <div class="dd" id="dd2" role="menu" aria-label="Day presets"></div>
+              </div>
+            </div>
+            <div class="seg" data-i="3">
+              <div>
+                <b>Month</b>
+                <div class="val" id="v3">?</div>
+              </div>
+              <div class="mini">
+                <button class="menu-btn" data-menu="3" title="Month presets">▾</button>
+                <div class="dd" id="dd3" role="menu" aria-label="Month presets"></div>
+              </div>
+            </div>
+            <div class="seg" data-i="4">
+              <div>
+                <b>Weekday</b>
+                <div class="val" id="v4">?</div>
+              </div>
+              <div class="mini">
+                <button class="menu-btn" data-menu="4" title="Weekday presets">▾</button>
+                <div class="dd" id="dd4" role="menu" aria-label="Weekday presets"></div>
+              </div>
+            </div>
+          </div>
+          <div class="chips" id="chips"></div>
+          <div id="hint" class="hint"></div>
+          <div id="err" class="error" role="alert"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start;justify-content:flex-end">
+          <button class="btn primary" id="openGuide">Open Guide</button>
+          <button class="btn ghost" id="nowBtn" title="Use a friendly preset">Use Example</button>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="pane">
+          <h3>Upcoming Runs</h3>
+          <div class="sub">Based on your local time</div>
+          <div class="list">
+            <table>
+              <thead><tr><th style="width:52%">Date & Time</th><th>In</th><th>#</th></tr></thead>
+              <tbody id="runs"><tr><td colspan="3" style="color:#9fb0c3">Waiting for a valid expression…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="pane">
+          <h3>Quick Examples</h3>
+          <div class="sub">Click to apply</div>
+          <div class="examples" id="examples"></div>
+          <h3 style="margin-top:14px">Plain-English Summary</h3>
+          <div class="sub" id="summary">…</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="status" id="status">
+          <div class="dot ok" id="dot"></div>
+          <span id="statusText">Ready</span>
+        </div>
+        <small>Supports lists (a,b), ranges (a-b), steps (*/n or a-b/n), names (MON..SUN, JAN..DEC). Standard 5-field cron.</small>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="guide">
+    <div class="dlg">
+      <header><strong style="font-size:18px">Cron Guide</strong></header>
+      <main>
+        <p>Standard 5-field cron: <code>minute hour day month weekday</code>. Whitespace separates fields. Examples use your local time zone.</p>
+        <h4>Fields & ranges</h4>
+        <ul>
+          <li><b>Minute</b>: 0–59</li>
+          <li><b>Hour</b>: 0–23</li>
+          <li><b>Day</b>: 1–31</li>
+          <li><b>Month</b>: 1–12 or <code>JAN..DEC</code></li>
+          <li><b>Weekday</b>: 0–7 (0 or 7 = Sun) or <code>MON..SUN</code></li>
+        </ul>
+        <h4>Syntax</h4>
+        <ul>
+          <li><code>*</code> any value, <code>*/n</code> every <i>n</i></li>
+          <li><code>a,b,c</code> list</li>
+          <li><code>a-b</code> range, <code>a-b/n</code> stepped range</li>
+          <li>Names: <code>MON-FRI</code>, <code>JAN,MAR,DEC</code></li>
+        </ul>
+        <h4>Examples</h4>
+        <ul>
+          <li><code>*/5 * * * *</code> — every 5 minutes</li>
+          <li><code>0 9 * * MON-FRI</code> — at 09:00 on weekdays</li>
+          <li><code>15 22,10 * * *</code> — at 22:15 and 10:15 daily</li>
+          <li><code>0 0 1 * *</code> — midnight on the first of each month</li>
+        </ul>
+        <h4>Notes</h4>
+        <ul>
+          <li>This studio does <b>not</b> support Quartz extensions (<code>?</code>, <code>L</code>, seconds field, etc.).</li>
+          <li>If the current minute matches now, the next run is in the future (no immediate fire).</li>
+        </ul>
+      </main>
+      <footer><button class="btn" id="closeGuide">Close</button></footer>
+    </div>
+  </dialog>
+
+  <script>
+    const el={
+      cron:document.getElementById('cron'), legend:document.getElementById('legend'),
+      v:[0,1,2,3,4].map(i=>document.getElementById('v'+i)), chips:document.getElementById('chips'),
+      hint:document.getElementById('hint'), err:document.getElementById('err'),
+      runs:document.getElementById('runs'), tz:document.getElementById('tz'),
+      status:document.getElementById('statusText'), dot:document.getElementById('dot'),
+      summary:document.getElementById('summary'), guide:document.getElementById('guide'),
+      openGuide:document.getElementById('openGuide'), closeGuide:document.getElementById('closeGuide'),
+      examples:document.getElementById('examples'), nowBtn:document.getElementById('nowBtn')
+    };
+
+    const MONTHS=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"]; // 1..12
+    const DOW=["SUN","MON","TUE","WED","THU","FRI","SAT"]; // 0..6; 0/7 is SUN
+
+    function tzInfo(){ const z=Intl.DateTimeFormat().resolvedOptions().timeZone; el.tz.textContent=`Now: ${fmt(new Date())} • Time zone: ${z}` }
+    function fmt(d){return new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(d)}
+    function humanDelta(ms){const s=Math.round(ms/1000); if(s<60) return s+"s"; const m=Math.floor(s/60); if(m<60) return m+"m"; const h=Math.floor(m/60); if(h<24) return h+"h"; const d=Math.floor(h/24); return d+"d"}
+
+    function tokenize(s){return s.trim().split(/\s+/).filter(Boolean)}
+
+    // ---- Token/caret helpers
+    function tokensWithRanges(text){ const out=[]; let start=null; let idx=-1; for(let p=0;p<=text.length;p++){ const ch=text[p]||' '; const isSpace=/\s/.test(ch); if(start===null && !isSpace){ start=p; idx++; } if(start!==null && (isSpace || p===text.length)){ out.push({i:idx,start,end:p}); start=null; } } return out; }
+    function caretFieldIndex(text,pos){ const toks=tokensWithRanges(text); for(const t of toks){ if(pos>=t.start && pos<=t.end) return t.i; } return (toks.length? (pos<toks[0].start?0:toks[toks.length-1].i): -1) }
+    function ensureFive(parts){ const p=[...parts]; while(p.length<5) p.push('*'); return p.slice(0,5); }
+    function setCaretToField(input, fieldIndex){ const parts=ensureFive(tokenize(input.value)); const rebuilt=parts.join(' '); if(rebuilt!==input.value){ input.value=rebuilt; } const toks=tokensWithRanges(input.value); const t = toks.find(t=>t.i===fieldIndex); if(!t) return; input.focus(); input.setSelectionRange(t.start, t.end); }
+    function replaceField(input, fieldIndex, value){ const parts=ensureFive(tokenize(input.value)); parts[fieldIndex]=value; input.value=parts.join(' '); setTimeout(()=>{ const toks=tokensWithRanges(input.value); const t=toks.find(x=>x.i===fieldIndex); if(t){ input.setSelectionRange(t.start, t.end); } update(); },0); }
+
+    function toSet(token,min,max,names){ const nameMap = names ? names.reduce((m,n,i)=>(m[n]=i+min, m), {}) : {}; const norm = t => t.toUpperCase(); const unit = (frag) => { if (frag === '*') { return new Set(Array.from({length: max-min+1}, (_,i)=> i+min)); } const stepSplit = frag.split('/'); const base = stepSplit[0]; const step = stepSplit[1] ? parseInt(stepSplit[1],10) : null; if (step !== null && (!Number.isInteger(step) || step <= 0)) { throw new Error('Step must be a positive integer'); } if (base.includes('-')) { const [a,b] = base.split('-'); const lo = val(a), hi = val(b); if (lo > hi) throw new Error('Range start > end'); const set = new Set(); for (let v=lo; v<=hi; v++) if (step ? ((v-lo)%step===0) : true) set.add(v); return set; } const single = val(base); if (single < min || single > max) throw new Error(`Value ${single} out of range ${min}-${max}`); const set = new Set(); set.add(single); if (step) { for (let v=single+step; v<=max; v+=step) set.add(v); } return set; function val(x){ if (x === '*') return min; const k = norm(x); if (nameMap[k] !== undefined) return nameMap[k]; const n = parseInt(x,10); if (!Number.isInteger(n)) throw new Error(`Invalid token '${x}'`); return n; } }; return token.split(',').map(unit).reduce((out, s) => { for (const v of s) out.add(v); return out; }, new Set()); }
+
+    function parse(expr){ const f=tokenize(expr); if(f.length!==5) throw new Error(`Expected 5 fields, got ${f.length}`); const minute=toSet(f[0],0,59); const hour=toSet(f[1],0,23); const dom=toSet(f[2],1,31); const mon=toSet(f[3],1,12,MONTHS); let dow=toSet(f[4],0,7,DOW); if(dow.has(7)){ dow.delete(7); dow.add(0); } return {raw:f, minute,hour,dom,mon,dow}; }
+
+    function match(dt,p){ const m=dt.getMinutes(), h=dt.getHours(), d=dt.getDate(), mo=dt.getMonth()+1, w=dt.getDay(); return p.minute.has(m) && p.hour.has(h) && p.dom.has(d) && p.mon.has(mo) && p.dow.has(w); }
+
+    function monthDays(year, mon){ return new Date(year, mon, 0).getDate(); }
+    function anyDayPossibleInNextYears(p, years=4){ const startYear = new Date().getFullYear(); for(let y=0;y<years;y++){ const yr = startYear + y; for(const mo of p.mon){ const md = monthDays(yr, mo); for(const d of p.dom){ if (d>md) continue; const w = new Date(yr, mo-1, d).getDay(); if (!p.dow.has(w)) continue; return true; } } } return false; }
+
+    function nextRuns(expr, n=10){ const p=parse(expr); if (!anyDayPossibleInNextYears(p, 4)) { return []; } const out=[]; let t=new Date(); t.setSeconds(0,0); t=new Date(t.getTime()+60000); let guard=0; const GUARD_LIMIT = 1051200; while(out.length<n && guard<GUARD_LIMIT){ if(match(t,p)) out.push(new Date(t)); t=new Date(t.getTime()+60000); guard++; } return out; }
+
+    function english(expr){ try{ const p=parse(expr); const [mi,hr,da,mo,wk]=p.raw; const part=(tok,label)=>{ if(tok==='*') return `every ${label}`; if(tok.startsWith('*/')) return `every ${tok.slice(2)} ${label}${Number(tok.slice(2))>1?'s':''}`; return `${label} ${tok}`; }; return `At ${part(mi,'minute')}, ${part(hr,'hour')}, ${part(da,'day')}, ${part(mo,'month')}, ${part(wk,'weekday')}.`; }catch{return '…'} }
+
+    function applyExamples(){ const samples=['*/5 * * * *','0 9 * * MON-FRI','15 22,10 * * *','0 0 1 * *','30 7 1-7 * MON','0 */6 * JAN,MAR,DEC *']; el.examples.innerHTML=''; for(const s of samples){ const b=document.createElement('button'); b.className='ex'; b.textContent=s; b.onclick=()=>{el.cron.value=s; update()}; el.examples.appendChild(b); } }
+
+    function colorChips(raw){ const names=['Minute','Hour','Day','Month','Weekday']; el.chips.innerHTML=''; raw.forEach((t,i)=>{ const span=document.createElement('span'); span.className='chip c'+(i+1); span.textContent=names[i]+': '+(t||'…'); el.chips.appendChild(span); }); }
+
+    function highlightLegend(idx, raw){ [...el.legend.querySelectorAll('.seg')].forEach((n,i)=>{n.classList.toggle('active', i===idx)}); raw.forEach((t,i)=>{ el.v[i].textContent=t||'?'; }); const help=[ 'Minute 0–59, supports lists (e.g., 0,15,30), ranges (10-20), steps (*/5).', 'Hour 0–23. Use 0 for midnight, 13 for 1pm, etc.', 'Day of month 1–31.', 'Month 1–12 or JAN..DEC.', 'Weekday 0–7 (0/7 = SUN) or MON..SUN.' ]; el.hint.innerHTML= idx>=0? `<strong>Editing ${['Minute','Hour','Day','Month','Weekday'][idx]}:</strong> ${help[idx]}` : ''; }
+
+    function update(){ tzInfo(); const s=el.cron.value.trim(); const caret=el.cron.selectionStart||0; const idx=caretFieldIndex(el.cron.value, caret); const raw=tokenize(s); highlightLegend(idx, raw); el.err.textContent=''; if(raw.length && raw.length!==5){ setStatus('Invalid field count', 'bad'); el.err.textContent='Expected exactly 5 fields (minute hour day month weekday).'; clearRuns(); paintSummary('…'); colorChips(['','','','','']); return; } if(raw.length===0){ setStatus('Waiting for input','warn'); clearRuns(); paintSummary('…'); colorChips(['','','','','']); return; } try{ const runs=nextRuns(s,10); colorChips(raw); paintSummary(english(s)); if (runs.length === 0) { setStatus('No occurrences found (within ~2 years)', 'warn'); clearRuns(`No upcoming runs found (within ~2 years). This often happens when the day-of-month does not exist for the selected month(s) — e.g., February never has day 31.`); } else { paintRuns(runs); setStatus('Expression is valid','ok'); } }catch(e){ setStatus('Has errors','bad'); el.err.textContent=e.message; clearRuns(); colorChips(raw.length===5?raw:['','','','','']); paintSummary('…'); } }
+
+    function setStatus(text,kind){ el.status.textContent=text; el.dot.className='dot '+(kind==='ok'?'ok':kind==='warn'?'warn':'bad') }
+    function clearRuns(msg){ el.runs.innerHTML = `<tr><td colspan="3" style="color:#9fb0c3">${msg || 'No upcoming runs found (within ~2 years). Check day-of-month vs weekday, ranges, or steps.'}</td></tr>`; }
+    function paintRuns(list){ if (!list || list.length === 0) { clearRuns(); return; } el.runs.innerHTML=''; const now=new Date(); list.forEach((d,i)=>{ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=fmt(d); const td2=document.createElement('td'); td2.textContent=humanDelta(d-now); const td3=document.createElement('td'); td3.textContent=String(i+1); tr.append(td1,td2,td3); el.runs.appendChild(tr); }) }
+    function paintSummary(text){ el.summary.textContent=text }
+
+    // ===== Legend <-> caret sync & immediate typing on seg =====
+    let activeField = -1;
+    el.legend.addEventListener('mousedown', (e)=>{ const seg = e.target.closest('.seg'); if(!seg) return; const idx = Number(seg.dataset.i); activeField = idx; setCaretToField(el.cron, idx); });
+    el.legend.addEventListener('click', (e)=>{ const seg = e.target.closest('.seg'); if(!seg) return; const idx = Number(seg.dataset.i); activeField = idx; setCaretToField(el.cron, idx); update(); });
+
+    // Route typing to the active legend field even if focus briefly elsewhere
+    const VALID_CHARS = /[0-9*\\/,-A-Z]/i;
+    document.addEventListener('keydown', (e)=>{
+      if (activeField<0) return;
+      if (e.metaKey||e.ctrlKey||e.altKey) return;
+      // If a dropdown is open, still allow typing into the field
+      const openMenu = document.querySelector('.dd.open');
+      let handled=false;
+      const parts = ensureFive(tokenize(el.cron.value));
+      let cur = parts[activeField] ?? '*';
+      if (e.key === 'Backspace') { handled=true; cur = (cur==='*') ? '' : cur.slice(0, -1); if(cur==='' ) cur='*'; }
+      else if (e.key === 'Delete') { handled=true; cur='*'; }
+      else if (e.key.length===1 && VALID_CHARS.test(e.key)) { handled=true; cur = (cur==='*')? e.key.toUpperCase() : (cur + e.key.toUpperCase()); }
+      else if (e.key === 'Enter') { handled=true; /* commit */ }
+      if (handled){ e.preventDefault(); replaceField(el.cron, activeField, cur); }
+    });
+
+    // ===== Dropdown menus (portal to body; correct positioning) =====
+    const PRESETS = { 0:{ title:'Minute', items:['*','*/5','*/10','0,15,30,45','0'] }, 1:{ title:'Hour', items:['*','*/2','9','0','12'] }, 2:{ title:'Day', items:['*','1','15','1-7','*/2','28'] }, 3:{ title:'Month', items:['*','JAN','JAN,MAR,DEC','6-8'] }, 4:{ title:'Weekday', items:['*','MON-FRI','MON,WED,FRI','0','6'] } };
+
+    function buildMenus(){ Object.keys(PRESETS).forEach(k=>{ const i=Number(k); const box=document.getElementById('dd'+i); box.innerHTML=''; const h=document.createElement('h5'); h.textContent=PRESETS[i].title+ ' presets'; box.appendChild(h); const grid=document.createElement('div'); grid.className='row'; PRESETS[i].items.forEach(val=>{ const b=document.createElement('button'); b.className='opt'; b.textContent=val; b.onclick=(ev)=>{ ev.stopPropagation(); replaceField(el.cron, i, val); closeAllMenus(); }; grid.appendChild(b); }); box.appendChild(grid); // portal once to body to use fixed positioning
+      if (!box._ported){ document.body.appendChild(box); box._ported=true; }
+    }); }
+
+    function positionMenu(dd, btn){
+      dd.style.visibility='hidden'; dd.style.display='block';
+      const r = btn.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const dw = dd.offsetWidth, dh = dd.offsetHeight;
+      let left = Math.min(Math.max(8, r.left), vw - dw - 8);
+      let top  = Math.min(Math.max(8, r.bottom + 6), vh - dh - 8);
+      dd.style.left = left + 'px';
+      dd.style.top  = top  + 'px';
+      dd.style.visibility='visible';
+    }
+
+    function closeAllMenus(){ document.querySelectorAll('.dd.open').forEach(n=>{ n.classList.remove('open'); n.style.display='none'; }); }
+
+    el.legend.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.menu-btn'); if(!btn) return; e.stopPropagation();
+      const i = Number(btn.getAttribute('data-menu')); const dd = document.getElementById('dd'+i);
+      const wasOpen = dd.classList.contains('open'); closeAllMenus(); if(wasOpen) return;
+      dd.classList.add('open'); dd.style.display='block'; positionMenu(dd, btn);
+      activeField = i; // typing targets this field while menu is open
+    });
+
+    ['scroll','resize'].forEach(evt=> window.addEventListener(evt, ()=>{ const open = document.querySelector('.dd.open'); if(open){ open.classList.remove('open'); open.style.display='none'; } }));
+    document.addEventListener('click', ()=> closeAllMenus());
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeAllMenus(); });
+
+    // Examples & guide
+    el.openGuide.onclick=()=>el.guide.showModal();
+    el.closeGuide.onclick=()=>el.guide.close();
+    el.guide.addEventListener('click',e=>{ if(e.target===el.guide) el.guide.close(); });
+    el.nowBtn.onclick=()=>{ el.cron.value='15 22,10 * * *'; update(); };
+
+    function applyExamples(){ const samples=['*/5 * * * *','0 9 * * MON-FRI','15 22,10 * * *','0 0 1 * *','30 7 1-7 * MON','0 */6 * JAN,MAR,DEC *']; el.examples.innerHTML=''; for(const s of samples){ const b=document.createElement('button'); b.className='ex'; b.textContent=s; b.onclick=()=>{el.cron.value=s; update()}; el.examples.appendChild(b); } }
+
+    function boot(){ applyExamples(); buildMenus(); tzInfo(); el.cron.value='15 22,10 * * *'; update(); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+    setInterval(tzInfo, 1000);
+  </script>
+</body>
+</html>
