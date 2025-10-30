@@ -79,7 +79,6 @@
     .warn{background:var(--warn)}
     .bad{background:var(--bad)}
 
-    /* Dropdown in viewport layer (fixed, portal to body) */
     .dd{position:fixed;z-index:1000;min-width:220px;max-width:320px;background:#0b1622;border:1px solid #27415c;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:6px;display:none}
     .dd.open{display:block}
     .dd h5{margin:6px 8px 6px;font-size:12px;color:#a9c3de;font-weight:600}
@@ -88,6 +87,7 @@
     .dd .row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 
     @media (max-width:880px){.cols{grid-template-columns:1fr}}
+    .val .tok{padding:2px 6px;border-radius:6px;background:#0b2236;border:1px solid #315679;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)}
   </style>
 </head>
 <body>
@@ -223,7 +223,7 @@
         </ul>
         <h4>Notes</h4>
         <ul>
-          <li>This studio does <b>not</b> support Quartz extensions (<code>?</code>, <code>L</code>, seconds field, etc.).</li>
+          <li>This studio does not support Quartz extensions (<code>?</code>, <code>L</code>, seconds field, etc.).</li>
           <li>If the current minute matches now, the next run is in the future (no immediate fire).</li>
         </ul>
       </main>
@@ -243,8 +243,11 @@
       examples:document.getElementById('examples'), nowBtn:document.getElementById('nowBtn')
     };
 
-    const MONTHS=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"]; // 1..12
-    const DOW=["SUN","MON","TUE","WED","THU","FRI","SAT"]; // 0..6; 0/7 is SUN
+    const MONTHS=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+    const DOW=["SUN","MON","TUE","WED","THU","FRI","SAT"];
+
+    function esc(s){ return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+    function menuOpen(){ return !!document.querySelector('.dd.open'); }
 
     function tzInfo(){ const z=Intl.DateTimeFormat().resolvedOptions().timeZone; el.tz.textContent=`Now: ${fmt(new Date())} • Time zone: ${z}` }
     function fmt(d){return new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(d)}
@@ -252,50 +255,195 @@
 
     function tokenize(s){return s.trim().split(/\s+/).filter(Boolean)}
 
-    // ---- Token/caret helpers
-    function tokensWithRanges(text){ const out=[]; let start=null; let idx=-1; for(let p=0;p<=text.length;p++){ const ch=text[p]||' '; const isSpace=/\s/.test(ch); if(start===null && !isSpace){ start=p; idx++; } if(start!==null && (isSpace || p===text.length)){ out.push({i:idx,start,end:p}); start=null; } } return out; }
-    function caretFieldIndex(text,pos){ const toks=tokensWithRanges(text); for(const t of toks){ if(pos>=t.start && pos<=t.end) return t.i; } return (toks.length? (pos<toks[0].start?0:toks[toks.length-1].i): -1) }
+    function tokensWithRanges(text){
+      const out=[]; let start=null; let idx=-1;
+      for(let p=0;p<=text.length;p++){
+        const ch=text[p]||' ';
+        const isSpace=/\s/.test(ch);
+        if(start===null && !isSpace){ start=p; idx++; }
+        if(start!==null && (isSpace || p===text.length)){ out.push({i:idx,start,end:p}); start=null; }
+      }
+      return out;
+    }
+    function caretFieldIndex(text,pos){
+      const toks=tokensWithRanges(text);
+      for(const t of toks){ if(pos>=t.start && pos<=t.end) return t.i; }
+      return (toks.length? (pos<toks[0].start?0:toks[toks.length-1].i): -1)
+    }
     function ensureFive(parts){ const p=[...parts]; while(p.length<5) p.push('*'); return p.slice(0,5); }
-    function setCaretToField(input, fieldIndex){ const parts=ensureFive(tokenize(input.value)); const rebuilt=parts.join(' '); if(rebuilt!==input.value){ input.value=rebuilt; } const toks=tokensWithRanges(input.value); const t = toks.find(t=>t.i===fieldIndex); if(!t) return; input.focus(); input.setSelectionRange(t.start, t.end); }
-    function replaceField(input, fieldIndex, value){ const parts=ensureFive(tokenize(input.value)); parts[fieldIndex]=value; input.value=parts.join(' '); setTimeout(()=>{ const toks=tokensWithRanges(input.value); const t=toks.find(x=>x.i===fieldIndex); if(t){ input.setSelectionRange(t.start, t.end); } update(); },0); }
+    function setCaretToField(input, fieldIndex){
+      const parts=ensureFive(tokenize(input.value));
+      const rebuilt=parts.join(' ');
+      if(rebuilt!==input.value){ input.value=rebuilt; }
+      const toks=tokensWithRanges(input.value);
+      const t = toks.find(t=>t.i===fieldIndex);
+      if(!t) return; input.focus(); input.setSelectionRange(t.start, t.end);
+    }
+    function replaceField(input, fieldIndex, value){
+      const parts=ensureFive(tokenize(input.value));
+      parts[fieldIndex]=value; input.value=parts.join(' ');
+      setTimeout(()=>{
+        const toks=tokensWithRanges(input.value);
+        const t=toks.find(x=>x.i===fieldIndex);
+        if(t){ input.setSelectionRange(t.start, t.end); }
+        update();
+      },0);
+    }
 
-    function toSet(token,min,max,names){ const nameMap = names ? names.reduce((m,n,i)=>(m[n]=i+min, m), {}) : {}; const norm = t => t.toUpperCase(); const unit = (frag) => { if (frag === '*') { return new Set(Array.from({length: max-min+1}, (_,i)=> i+min)); } const stepSplit = frag.split('/'); const base = stepSplit[0]; const step = stepSplit[1] ? parseInt(stepSplit[1],10) : null; if (step !== null && (!Number.isInteger(step) || step <= 0)) { throw new Error('Step must be a positive integer'); } if (base.includes('-')) { const [a,b] = base.split('-'); const lo = val(a), hi = val(b); if (lo > hi) throw new Error('Range start > end'); const set = new Set(); for (let v=lo; v<=hi; v++) if (step ? ((v-lo)%step===0) : true) set.add(v); return set; } const single = val(base); if (single < min || single > max) throw new Error(`Value ${single} out of range ${min}-${max}`); const set = new Set(); set.add(single); if (step) { for (let v=single+step; v<=max; v+=step) set.add(v); } return set; function val(x){ if (x === '*') return min; const k = norm(x); if (nameMap[k] !== undefined) return nameMap[k]; const n = parseInt(x,10); if (!Number.isInteger(n)) throw new Error(`Invalid token '${x}'`); return n; } }; return token.split(',').map(unit).reduce((out, s) => { for (const v of s) out.add(v); return out; }, new Set()); }
+    function toSet(token,min,max,names){
+      const nameMap = names ? names.reduce((m,n,i)=>(m[n]=i+min, m), {}) : {};
+      const norm = t => t.toUpperCase();
+      const unit = (frag) => {
+        if (frag === '*') { return new Set(Array.from({length: max-min+1}, (_,i)=> i+min)); }
+        const stepSplit = frag.split('/');
+        const base = stepSplit[0];
+        const step = stepSplit[1] ? parseInt(stepSplit[1],10) : null;
+        if (step !== null && (!Number.isInteger(step) || step <= 0)) { throw new Error('Step must be a positive integer'); }
+        if (base.includes('-')) {
+          const [a,b] = base.split('-');
+          const lo = val(a), hi = val(b);
+          if (lo > hi) throw new Error('Range start > end');
+          const set = new Set();
+          for (let v=lo; v<=hi; v++) if (step ? ((v-lo)%step===0) : true) set.add(v);
+          return set;
+        }
+        const single = val(base);
+        if (single < min || single > max) throw new Error(`Value ${single} out of range ${min}-${max}`);
+        const set = new Set(); set.add(single);
+        if (step) { for (let v=single+step; v<=max; v+=step) set.add(v); }
+        return set;
+        function val(x){
+          if (x === '*') return min;
+          const k = norm(x);
+          if (nameMap[k] !== undefined) return nameMap[k];
+          const n = parseInt(x,10);
+          if (!Number.isInteger(n)) throw new Error(`Invalid token '${x}'`);
+          return n;
+        }
+      };
+      return token.split(',').map(unit).reduce((out, s) => { for (const v of s) out.add(v); return out; }, new Set());
+    }
 
-    function parse(expr){ const f=tokenize(expr); if(f.length!==5) throw new Error(`Expected 5 fields, got ${f.length}`); const minute=toSet(f[0],0,59); const hour=toSet(f[1],0,23); const dom=toSet(f[2],1,31); const mon=toSet(f[3],1,12,MONTHS); let dow=toSet(f[4],0,7,DOW); if(dow.has(7)){ dow.delete(7); dow.add(0); } return {raw:f, minute,hour,dom,mon,dow}; }
+    function parse(expr){
+      const f=tokenize(expr);
+      if(f.length!==5) throw new Error(`Expected 5 fields, got ${f.length}`);
+      const minute=toSet(f[0],0,59);
+      const hour=toSet(f[1],0,23);
+      const dom=toSet(f[2],1,31);
+      const mon=toSet(f[3],1,12,MONTHS);
+      let dow=toSet(f[4],0,7,DOW);
+      if(dow.has(7)){ dow.delete(7); dow.add(0); }
+      return {raw:f, minute,hour,dom,mon,dow};
+    }
 
-    function match(dt,p){ const m=dt.getMinutes(), h=dt.getHours(), d=dt.getDate(), mo=dt.getMonth()+1, w=dt.getDay(); return p.minute.has(m) && p.hour.has(h) && p.dom.has(d) && p.mon.has(mo) && p.dow.has(w); }
+    function match(dt,p){
+      const m=dt.getMinutes(), h=dt.getHours(), d=dt.getDate(), mo=dt.getMonth()+1, w=dt.getDay();
+      return p.minute.has(m) && p.hour.has(h) && p.dom.has(d) && p.mon.has(mo) && p.dow.has(w);
+    }
 
     function monthDays(year, mon){ return new Date(year, mon, 0).getDate(); }
-    function anyDayPossibleInNextYears(p, years=4){ const startYear = new Date().getFullYear(); for(let y=0;y<years;y++){ const yr = startYear + y; for(const mo of p.mon){ const md = monthDays(yr, mo); for(const d of p.dom){ if (d>md) continue; const w = new Date(yr, mo-1, d).getDay(); if (!p.dow.has(w)) continue; return true; } } } return false; }
+    function anyDayPossibleInNextYears(p, years=4){
+      const startYear = new Date().getFullYear();
+      for(let y=0;y<years;y++){
+        const yr = startYear + y;
+        for(const mo of p.mon){
+          const md = monthDays(yr, mo);
+          for(const d of p.dom){
+            if (d>md) continue;
+            const w = new Date(yr, mo-1, d).getDay();
+            if (!p.dow.has(w)) continue;
+            return true;
+          }
+        }
+      }
+      return false;
+    }
 
-    function nextRuns(expr, n=10){ const p=parse(expr); if (!anyDayPossibleInNextYears(p, 4)) { return []; } const out=[]; let t=new Date(); t.setSeconds(0,0); t=new Date(t.getTime()+60000); let guard=0; const GUARD_LIMIT = 1051200; while(out.length<n && guard<GUARD_LIMIT){ if(match(t,p)) out.push(new Date(t)); t=new Date(t.getTime()+60000); guard++; } return out; }
+    function nextRuns(expr, n=10){
+      const p=parse(expr);
+      if (!anyDayPossibleInNextYears(p, 4)) { return []; }
+      const out=[]; let t=new Date(); t.setSeconds(0,0); t=new Date(t.getTime()+60000);
+      let guard=0; const GUARD_LIMIT = 1051200;
+      while(out.length<n && guard<GUARD_LIMIT){
+        if(match(t,p)) out.push(new Date(t));
+        t=new Date(t.getTime()+60000); guard++;
+      }
+      return out;
+    }
 
-    function english(expr){ try{ const p=parse(expr); const [mi,hr,da,mo,wk]=p.raw; const part=(tok,label)=>{ if(tok==='*') return `every ${label}`; if(tok.startsWith('*/')) return `every ${tok.slice(2)} ${label}${Number(tok.slice(2))>1?'s':''}`; return `${label} ${tok}`; }; return `At ${part(mi,'minute')}, ${part(hr,'hour')}, ${part(da,'day')}, ${part(mo,'month')}, ${part(wk,'weekday')}.`; }catch{return '…'} }
+    function english(expr){
+      try{
+        const p=parse(expr);
+        const [mi,hr,da,mo,wk]=p.raw;
+        const part=(tok,label)=>{
+          if(tok==='*') return `every ${label}`;
+          if(tok.startsWith('*/')) return `every ${tok.slice(2)} ${label}${Number(tok.slice(2))>1?'s':''}`;
+          return `${label} ${tok}`;
+        };
+        return `At ${part(mi,'minute')}, ${part(hr,'hour')}, ${part(da,'day')}, ${part(mo,'month')}, ${part(wk,'weekday')}.`;
+      }catch{return '…'}
+    }
 
-    function applyExamples(){ const samples=['*/5 * * * *','0 9 * * MON-FRI','15 22,10 * * *','0 0 1 * *','30 7 1-7 * MON','0 */6 * JAN,MAR,DEC *']; el.examples.innerHTML=''; for(const s of samples){ const b=document.createElement('button'); b.className='ex'; b.textContent=s; b.onclick=()=>{el.cron.value=s; update()}; el.examples.appendChild(b); } }
+    function colorChips(raw){
+      const names=['Minute','Hour','Day','Month','Weekday'];
+      el.chips.innerHTML='';
+      raw.forEach((t,i)=>{
+        const span=document.createElement('span');
+        span.className='chip c'+(i+1);
+        span.textContent=names[i]+': '+(t||'…');
+        el.chips.appendChild(span);
+      });
+    }
 
-    function colorChips(raw){ const names=['Minute','Hour','Day','Month','Weekday']; el.chips.innerHTML=''; raw.forEach((t,i)=>{ const span=document.createElement('span'); span.className='chip c'+(i+1); span.textContent=names[i]+': '+(t||'…'); el.chips.appendChild(span); }); }
-
-    function highlightLegend(idx, raw){ [...el.legend.querySelectorAll('.seg')].forEach((n,i)=>{n.classList.toggle('active', i===idx)}); raw.forEach((t,i)=>{ el.v[i].textContent=t||'?'; }); const help=[ 'Minute 0–59, supports lists (e.g., 0,15,30), ranges (10-20), steps (*/5).', 'Hour 0–23. Use 0 for midnight, 13 for 1pm, etc.', 'Day of month 1–31.', 'Month 1–12 or JAN..DEC.', 'Weekday 0–7 (0/7 = SUN) or MON..SUN.' ]; el.hint.innerHTML= idx>=0? `<strong>Editing ${['Minute','Hour','Day','Month','Weekday'][idx]}:</strong> ${help[idx]}` : ''; }
-
-    function update(){ tzInfo(); const s=el.cron.value.trim(); const caret=el.cron.selectionStart||0; const idx=caretFieldIndex(el.cron.value, caret); const raw=tokenize(s); highlightLegend(idx, raw); el.err.textContent=''; if(raw.length && raw.length!==5){ setStatus('Invalid field count', 'bad'); el.err.textContent='Expected exactly 5 fields (minute hour day month weekday).'; clearRuns(); paintSummary('…'); colorChips(['','','','','']); return; } if(raw.length===0){ setStatus('Waiting for input','warn'); clearRuns(); paintSummary('…'); colorChips(['','','','','']); return; } try{ const runs=nextRuns(s,10); colorChips(raw); paintSummary(english(s)); if (runs.length === 0) { setStatus('No occurrences found (within ~2 years)', 'warn'); clearRuns(`No upcoming runs found (within ~2 years). This often happens when the day-of-month does not exist for the selected month(s) — e.g., February never has day 31.`); } else { paintRuns(runs); setStatus('Expression is valid','ok'); } }catch(e){ setStatus('Has errors','bad'); el.err.textContent=e.message; clearRuns(); colorChips(raw.length===5?raw:['','','','','']); paintSummary('…'); } }
+    function highlightLegend(idx, raw){
+      [...el.legend.querySelectorAll('.seg')].forEach((n,i)=>{ n.classList.toggle('active', i===idx); });
+      raw.forEach((t,i)=>{
+        el.v[i].innerHTML = (i===idx)
+          ? `<span class="tok">${esc(t||'?')}</span>`
+          : esc(t||'?');
+      });
+      const help=[
+        'Minute 0–59, supports lists (e.g., 0,15,30), ranges (10-20), steps (*/5).',
+        'Hour 0–23. Use 0 for midnight, 13 for 1pm, etc.',
+        'Day of month 1–31.',
+        'Month 1–12 or JAN..DEC.',
+        'Weekday 0–7 (0/7 = SUN) or MON..SUN.'
+      ];
+      el.hint.innerHTML = idx>=0
+        ? `<strong>Editing ${['Minute','Hour','Day','Month','Weekday'][idx]}:</strong> ${help[idx]}`
+        : '';
+    }
 
     function setStatus(text,kind){ el.status.textContent=text; el.dot.className='dot '+(kind==='ok'?'ok':kind==='warn'?'warn':'bad') }
     function clearRuns(msg){ el.runs.innerHTML = `<tr><td colspan="3" style="color:#9fb0c3">${msg || 'No upcoming runs found (within ~2 years). Check day-of-month vs weekday, ranges, or steps.'}</td></tr>`; }
-    function paintRuns(list){ if (!list || list.length === 0) { clearRuns(); return; } el.runs.innerHTML=''; const now=new Date(); list.forEach((d,i)=>{ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=fmt(d); const td2=document.createElement('td'); td2.textContent=humanDelta(d-now); const td3=document.createElement('td'); td3.textContent=String(i+1); tr.append(td1,td2,td3); el.runs.appendChild(tr); }) }
+    function paintRuns(list){
+      if (!list || list.length === 0) { clearRuns(); return; }
+      el.runs.innerHTML=''; const now=new Date();
+      list.forEach((d,i)=>{
+        const tr=document.createElement('tr');
+        const td1=document.createElement('td'); td1.textContent=fmt(d);
+        const td2=document.createElement('td'); td2.textContent=humanDelta(d-now);
+        const td3=document.createElement('td'); td3.textContent=String(i+1);
+        tr.append(td1,td2,td3); el.runs.appendChild(tr);
+      })
+    }
     function paintSummary(text){ el.summary.textContent=text }
 
-    // ===== Legend <-> caret sync & immediate typing on seg =====
     let activeField = -1;
-    el.legend.addEventListener('mousedown', (e)=>{ const seg = e.target.closest('.seg'); if(!seg) return; const idx = Number(seg.dataset.i); activeField = idx; setCaretToField(el.cron, idx); });
-    el.legend.addEventListener('click', (e)=>{ const seg = e.target.closest('.seg'); if(!seg) return; const idx = Number(seg.dataset.i); activeField = idx; setCaretToField(el.cron, idx); update(); });
 
-    // Route typing to the active legend field even if focus briefly elsewhere
+    el.legend.addEventListener('mousedown', (e)=>{
+      const seg = e.target.closest('.seg'); if(!seg) return;
+      const idx = Number(seg.dataset.i); activeField = idx; setCaretToField(el.cron, idx);
+    });
+    el.legend.addEventListener('click', (e)=>{
+      const seg = e.target.closest('.seg'); if(!seg) return;
+      const idx = Number(seg.dataset.i); activeField = idx; setCaretToField(el.cron, idx); update();
+    });
+
     const VALID_CHARS = /[0-9*\\/,-A-Z]/i;
     document.addEventListener('keydown', (e)=>{
       if (activeField<0) return;
       if (e.metaKey||e.ctrlKey||e.altKey) return;
-      // If a dropdown is open, still allow typing into the field
       const openMenu = document.querySelector('.dd.open');
       let handled=false;
       const parts = ensureFive(tokenize(el.cron.value));
@@ -303,16 +451,35 @@
       if (e.key === 'Backspace') { handled=true; cur = (cur==='*') ? '' : cur.slice(0, -1); if(cur==='' ) cur='*'; }
       else if (e.key === 'Delete') { handled=true; cur='*'; }
       else if (e.key.length===1 && VALID_CHARS.test(e.key)) { handled=true; cur = (cur==='*')? e.key.toUpperCase() : (cur + e.key.toUpperCase()); }
-      else if (e.key === 'Enter') { handled=true; /* commit */ }
+      else if (e.key === 'Enter') { handled=true; }
       if (handled){ e.preventDefault(); replaceField(el.cron, activeField, cur); }
     });
 
-    // ===== Dropdown menus (portal to body; correct positioning) =====
-    const PRESETS = { 0:{ title:'Minute', items:['*','*/5','*/10','0,15,30,45','0'] }, 1:{ title:'Hour', items:['*','*/2','9','0','12'] }, 2:{ title:'Day', items:['*','1','15','1-7','*/2','28'] }, 3:{ title:'Month', items:['*','JAN','JAN,MAR,DEC','6-8'] }, 4:{ title:'Weekday', items:['*','MON-FRI','MON,WED,FRI','0','6'] } };
+    const PRESETS = {
+      0:{ title:'Minute', items:['*','*/5','*/10','0,15,30,45','0'] },
+      1:{ title:'Hour', items:['*','*/2','9','0','12'] },
+      2:{ title:'Day', items:['*','1','15','1-7','*/2','28'] },
+      3:{ title:'Month', items:['*','JAN','JAN,MAR,DEC','6-8'] },
+      4:{ title:'Weekday', items:['*','MON-FRI','MON,WED,FRI','0','6'] }
+    };
 
-    function buildMenus(){ Object.keys(PRESETS).forEach(k=>{ const i=Number(k); const box=document.getElementById('dd'+i); box.innerHTML=''; const h=document.createElement('h5'); h.textContent=PRESETS[i].title+ ' presets'; box.appendChild(h); const grid=document.createElement('div'); grid.className='row'; PRESETS[i].items.forEach(val=>{ const b=document.createElement('button'); b.className='opt'; b.textContent=val; b.onclick=(ev)=>{ ev.stopPropagation(); replaceField(el.cron, i, val); closeAllMenus(); }; grid.appendChild(b); }); box.appendChild(grid); // portal once to body to use fixed positioning
-      if (!box._ported){ document.body.appendChild(box); box._ported=true; }
-    }); }
+    function buildMenus(){
+      Object.keys(PRESETS).forEach(k=>{
+        const i=Number(k);
+        const box=document.getElementById('dd'+i);
+        box.innerHTML='';
+        const h=document.createElement('h5'); h.textContent=PRESETS[i].title+ ' presets'; box.appendChild(h);
+        const grid=document.createElement('div'); grid.className='row';
+        PRESETS[i].items.forEach(val=>{
+          const b=document.createElement('button');
+          b.className='opt'; b.textContent=val;
+          b.onclick=(ev)=>{ ev.stopPropagation(); replaceField(el.cron, i, val); closeAllMenus(); };
+          grid.appendChild(b);
+        });
+        box.appendChild(grid);
+        if (!box._ported){ document.body.appendChild(box); box._ported=true; }
+      });
+    }
 
     function positionMenu(dd, btn){
       dd.style.visibility='hidden'; dd.style.display='block';
@@ -333,20 +500,89 @@
       const i = Number(btn.getAttribute('data-menu')); const dd = document.getElementById('dd'+i);
       const wasOpen = dd.classList.contains('open'); closeAllMenus(); if(wasOpen) return;
       dd.classList.add('open'); dd.style.display='block'; positionMenu(dd, btn);
-      activeField = i; // typing targets this field while menu is open
+      activeField = i;
     });
 
-    ['scroll','resize'].forEach(evt=> window.addEventListener(evt, ()=>{ const open = document.querySelector('.dd.open'); if(open){ open.classList.remove('open'); open.style.display='none'; } }));
+    ['scroll','resize'].forEach(evt=> window.addEventListener(evt, ()=>{
+      const open = document.querySelector('.dd.open');
+      if(open){ open.classList.remove('open'); open.style.display='none'; }
+    }));
     document.addEventListener('click', ()=> closeAllMenus());
     document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeAllMenus(); });
 
-    // Examples & guide
+    function applyExamples(){
+      const samples=['*/5 * * * *','0 9 * * MON-FRI','15 22,10 * * *','0 0 1 * *','30 7 1-7 * MON','0 */6 * JAN,MAR,DEC *'];
+      el.examples.innerHTML='';
+      for(const s of samples){
+        const b=document.createElement('button');
+        b.className='ex'; b.textContent=s;
+        b.onclick=()=>{el.cron.value=s; update()};
+        el.examples.appendChild(b);
+      }
+    }
+
+    function update(){
+      tzInfo();
+      const s=el.cron.value.trim();
+      const caret=el.cron.selectionStart||0;
+      const idx=caretFieldIndex(el.cron.value, caret);
+      const raw=tokenize(s);
+
+      highlightLegend(idx, raw);
+      if (!menuOpen()) activeField = idx;
+
+      el.err.textContent='';
+      if(raw.length && raw.length!==5){
+        setStatus('Invalid field count', 'bad');
+        el.err.textContent='Expected exactly 5 fields (minute hour day month weekday).';
+        clearRuns(); paintSummary('…'); colorChips(['','','','','']);
+        return;
+      }
+      if(raw.length===0){
+        setStatus('Waiting for input','warn');
+        clearRuns(); paintSummary('…'); colorChips(['','','','','']);
+        return;
+      }
+      try{
+        const runs=nextRuns(s,10);
+        colorChips(raw);
+        paintSummary(english(s));
+        if (runs.length === 0) {
+          setStatus('No occurrences found (within ~2 years)', 'warn');
+          clearRuns(`No upcoming runs found (within ~2 years). This often happens when the day-of-month does not exist for the selected month(s) — e.g., February never has day 31.`);
+        } else {
+          paintRuns(runs);
+          setStatus('Expression is valid','ok');
+        }
+      }catch(e){
+        setStatus('Has errors','bad');
+        el.err.textContent=e.message;
+        clearRuns();
+        colorChips(raw.length===5?raw:['','','','','']);
+        paintSummary('…');
+      }
+    }
+
+    function syncFromCaret(){
+      if (document.activeElement === el.cron && !menuOpen()){
+        const caret = el.cron.selectionStart || 0;
+        const idx = caretFieldIndex(el.cron.value, caret);
+        if (idx !== activeField){ activeField = idx; }
+      }
+      update();
+    }
+
+    ['input','keyup','click','mouseup'].forEach(evt=>{
+      el.cron.addEventListener(evt, syncFromCaret);
+    });
+    document.addEventListener('selectionchange', ()=>{
+      if (document.activeElement === el.cron) syncFromCaret();
+    });
+
     el.openGuide.onclick=()=>el.guide.showModal();
     el.closeGuide.onclick=()=>el.guide.close();
     el.guide.addEventListener('click',e=>{ if(e.target===el.guide) el.guide.close(); });
     el.nowBtn.onclick=()=>{ el.cron.value='15 22,10 * * *'; update(); };
-
-    function applyExamples(){ const samples=['*/5 * * * *','0 9 * * MON-FRI','15 22,10 * * *','0 0 1 * *','30 7 1-7 * MON','0 */6 * JAN,MAR,DEC *']; el.examples.innerHTML=''; for(const s of samples){ const b=document.createElement('button'); b.className='ex'; b.textContent=s; b.onclick=()=>{el.cron.value=s; update()}; el.examples.appendChild(b); } }
 
     function boot(){ applyExamples(); buildMenus(); tzInfo(); el.cron.value='15 22,10 * * *'; update(); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
@@ -354,4 +590,3 @@
   </script>
 </body>
 </html>
-
